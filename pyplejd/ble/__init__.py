@@ -93,8 +93,8 @@ class PlejdMesh:
             return True
         _CONNECTION_LOG.debug("Trying to connect to BLE mesh")
 
-        def _disconnect(reason):
-            _CONNECTION_LOG.debug("Disconected from BLE mesh (%s)", reason)
+        def _disconnect(client: BleakClient):
+            _CONNECTION_LOG.debug("Disconected from BLE mesh (%s)", client)
             self._client = None
             if self._gateway_node:
                 self._gateway_node.is_gateway = False
@@ -131,12 +131,16 @@ class PlejdMesh:
                     BleakClientWithServiceCache,
                     node.bleDevice,
                     node.bleDevice.name,
-                    _disconnect,
                 )
 
                 # Workaround for problem in plejd firmware 2026-05-20
                 # Disconnect and connect again
+                _CONNECTION_LOG.debug(
+                    "BT Proxy workaround - Disconnecting for 5 seconds."
+                )
                 await client.disconnect()
+                await asyncio.sleep(5)
+                _CONNECTION_LOG.debug("BT Proxy workaround - Reconnecting")
                 client = await establish_connection(
                     BleakClientWithServiceCache,
                     node.bleDevice,
@@ -281,9 +285,12 @@ class PlejdMesh:
         try:
             _CONNECTION_LOG.debug("Authenticating with plejd mesh")
             await client.write_gatt_char(gatt.PLEJD_AUTH, b"\x00", response=True)
+            _CONNECTION_LOG.debug("Requested auth")
             challenge = await client.read_gatt_char(gatt.PLEJD_AUTH)
+            _CONNECTION_LOG.debug("Got challenge")
             response = auth_response(self._crypto_key, challenge)
             await client.write_gatt_char(gatt.PLEJD_AUTH, response, response=True)
+            _CONNECTION_LOG.debug("Wrote response")
             if not await self._ping(client):
                 _CONNECTION_LOG.debug("Authentication failed!")
                 return False

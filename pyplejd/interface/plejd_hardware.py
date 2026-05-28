@@ -17,6 +17,9 @@ class PlejdHardware(MeshDevice):
 
         self._listeners = set()
 
+    def __repr__(self):
+        return f"PlejdHardware(BLEaddress={self.BLEaddress}, powered={self._powered}, blacklisted={self.blacklisted})"
+
     @property
     def connectable(self):
         return self._powered and not self.blacklisted
